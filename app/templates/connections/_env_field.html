@@ -31,8 +31,7 @@
     <span class="help"><span class="spinner"></span> carico l'elenco da Business Central…</span>
     {% else %}
     <button type="button" class="btn btn-sm btn-ghost" hx-post="/connections/lookup/environments" hx-target="#env-field"
-            hx-swap="outerHTML" hx-include="closest form" hx-indicator="#env-spin"
-            title="Legge l'elenco degli environment del tenant da Business Central">
+            hx-swap="outerHTML" hx-include="closest form" hx-indicator="#env-spin">
       {{ "↻ Ricarica elenco" if envs else "Carica elenco da Business Central" }}
     </button>
     <span id="env-spin" class="spinner htmx-indicator" role="status" aria-label="Caricamento"></span>

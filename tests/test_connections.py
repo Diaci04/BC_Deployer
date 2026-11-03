@@ -269,5 +269,5 @@ def test_card_opens_edit_and_has_delete(auth_client, app):
     _create(auth_client)
     conn = _conn(app)
     page = auth_client.get("/connections").text
-    assert f'class="conn-link conn-env" href="/connections/{conn.id}/edit" title="Clicca per modificare' in page
+    assert f'class="conn-link conn-env" href="/connections/{conn.id}/edit">' in page
     assert f'hx-post="/connections/{conn.id}/delete"' in page and ">Modifica<" not in page

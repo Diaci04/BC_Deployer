@@ -29,8 +29,7 @@
     <span class="help"><span class="spinner"></span> carico l'elenco da Business Central…</span>
     {% else %}
     <button type="button" class="btn btn-sm btn-ghost" hx-post="/connections/lookup/companies" hx-target="#company-field"
-            hx-swap="outerHTML" hx-include="closest form" hx-indicator="#company-spin"
-            title="Legge le company dell'environment scelto">
+            hx-swap="outerHTML" hx-include="closest form" hx-indicator="#company-spin">
       {{ "↻ Ricarica elenco" if companies is not none else "Carica elenco da Business Central" }}
     </button>
     <span id="company-spin" class="spinner htmx-indicator" role="status" aria-label="Caricamento"></span>
