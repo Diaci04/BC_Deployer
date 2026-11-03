@@ -1,163 +1,202 @@
 # BC Deployer
 
-Installa e aggiorna estensioni `.app` su **Business Central SaaS** dal browser:
-1. carichi i pacchetti;
-2. l'app calcola l'ordine di installazione e controlla l'environment;
-3. il deploy parte subito o all'orario che scegli, e lo segui in tempo reale.
+🇬🇧 English · [🇮🇹 Italiano](README.it.md)
 
-Gira sul tuo PC, su http://localhost:8000. Serve solo Python, cioè il comando `py`.
+Install and update `.app` extensions on **Business Central SaaS** from your browser, using the Automation API.
 
-> ⚠️ **Scadenza.** Microsoft toglie l'upload delle estensioni dall'Automation API con **BC versione 30**.
-> Ogni environment lo perde quando passa alla v30: da **aprile 2027**, al più tardi **a inizio settembre 2027**.
-> Prima di allora l'app va aggiornata per usare l'Admin Center API.
+1. Upload your packages.
+2. The app works out the install order from their dependencies and checks the target environment.
+3. The deploy runs right away or at a time you choose, and you follow it live.
 
-## Prima installazione
+It runs on your own PC at http://localhost:8000. All calls to Entra ID and Business Central are made by the
+local server, so the client secret never reaches the browser. Only Python is needed: no Docker, no build step.
 
-1. Doppio clic su **`Installa.bat`**. Ci vuole qualche minuto.
-2. Alla domanda sulla **chiave**:
-   - se hai già delle connessioni salvate, incolla la chiave che usavi;
-   - altrimenti premi **Invio**: ne crea una nuova.
-3. Scegli la **password** per entrare: almeno 12 caratteri.
+> ⚠️ **Deprecation.** Microsoft is removing `extensionUpload` (extension upload through the Automation API)
+> in **Business Central v30** (2027 release wave 1). An environment loses it when it is upgraded to v30:
+> from **April 2027**, and at the latest by **early September 2027** if you postpone the update.
+> Before then the app will need a backend based on the Admin Center API. The code is prepared for it
+> (see [Development](#development)), but it is not implemented yet.
 
-Password e chiave restano salvate nel file `.env` della cartella. Tieni una copia della chiave nel password
-manager: senza, le connessioni salvate vanno reinserite.
+## Features
 
-## Uso di tutti i giorni
+- **Dependency-aware deploys.** The install order comes from the apps' manifests. Dependencies that are
+  missing or too old, a downgrade, or a Base Application that is too old stop the deploy before it starts.
+  An app already installed at the same version is skipped.
+- **Schema sync mode** *Add* or *Force Sync*, and **schedule** *current version* / *next minor* / *next major*,
+  as in the Extension Management page of Business Central.
+- **Scheduled deploys**: once at a given date and time, or recurring with a cron expression
+  (Europe/Rome time zone by default).
+- **Live status** for every app. When one app fails, the deploy stops and the remaining ones are marked as
+  skipped. One deploy at a time per environment.
+- **History** with filters, full logs and a **rerun** button for failed deployments.
+- **Connections** grouped by customer, with a one-click **Copy** to add more environments for the same customer.
+- **Notifications** at the end of a deploy by **email**, **Microsoft Teams** or **Slack**: every result or
+  only failures, per connection.
+- **Production safety**: for a production environment you must type its name to confirm.
+- **Secrets**: client secrets and webhook URLs are encrypted at rest and never shown again after saving.
+  Single admin login with a hashed password, CSRF protection and rate limiting.
 
-Doppio clic su **`Avvia.bat`**: si apre il browser. Entra con utente `admin` e la tua password.
+## Requirements
 
-- Lascia aperta la finestra nera, anche ridotta a icona: se la chiudi, l'app si ferma.
-- I deploy programmati partono solo se il PC è acceso e l'app è aperta. Se l'app si avvia entro 60 minuti
-  dall'orario previsto, il deploy parte comunque.
+- Windows with **Python 3.12 or later** (the `py` launcher is enough: `py -0` lists the installed versions).
+- Internet access to download the libraries, and to reach `login.microsoftonline.com` and
+  `api.businesscentral.dynamics.com`.
+- An app registration in Entra ID with access to your Business Central environments
+  (see [Connecting to Business Central](#connecting-to-business-central)).
 
-**Collegamento sul Desktop:** clic destro su `Avvia.bat` → *Invia a → Desktop (crea collegamento)*
-(su Windows 11: *Mostra altre opzioni*). Non spostare la cartella dell'app, altrimenti il collegamento smette di funzionare.
+## Installation (once)
 
-**Avvio automatico:** doppio clic su **`Avvio-automatico.bat`**. L'app parte da sola a ogni accesso a Windows,
-ridotta a icona. Si apre da http://localhost:8000. Un altro doppio clic sullo stesso file lo disattiva.
+1. Download or clone the repository.
+2. Double-click **`Installa.bat`**. It takes a few minutes.
+3. When asked for the **encryption key**:
+   - if you already have saved connections, paste the key you used before;
+   - otherwise press **Enter** and a new one is created.
+4. Choose the **password** you will use to log in (at least 12 characters).
 
-**Cambiare password:** rilancia `Installa.bat` e rispondi `s`.
+Password (hashed) and key are stored in the `.env` file in the app folder. Keep a copy of the key in a password
+manager: without it, saved connections have to be entered again.
 
-## Primo collegamento a Business Central
+To change the password, run `Installa.bat` again and answer `s` (sì, "yes") to the question about changing it.
 
-Va fatto una volta per ogni tenant.
+> The scripts and the in-app text are in Italian. The deployment logic does not depend on the language.
+
+## Daily use
+
+Double-click **`Avvia.bat`**. The browser opens: log in with user `admin` and your password.
+
+- Keep the black window open, even minimized: closing it stops the app.
+- Scheduled deploys only run while the PC is on and the app is open. If the app starts within 60 minutes of
+  the planned time, the deploy still runs.
+
+**Desktop shortcut:** right-click `Avvia.bat` → *Send to → Desktop (create shortcut)*. Do not move the app
+folder afterwards, or the shortcut stops working.
+
+**Start with Windows:** double-click **`Avvio-automatico.bat`**. The app starts by itself at every login,
+minimized. Open it at http://localhost:8000. Double-click the same file again to turn it off.
+
+## Connecting to Business Central
+
+Do this once per tenant.
 
 **In Entra ID (Azure)**
-1. *App registrations → New registration*, poi *Certificates & secrets → New client secret*.
+1. *App registrations → New registration*, then *Certificates & secrets → New client secret*.
 2. *API permissions → Add → Dynamics 365 Business Central → Application permissions →*
    `Automation.ReadWrite.All` → **Grant admin consent**.
 
-**In Business Central**, per ogni environment:
-1. Pagina *Microsoft Entra Applications* → nuovo record con il Client ID, stato *Enabled*.
-2. Assegna i permission set `D365 AUTOMATION` ed `EXTEN. MGT. - ADMIN`.
+**In Business Central**, for every environment:
+1. Open the *Microsoft Entra Applications* page → new record with the Client ID, state *Enabled*.
+2. Assign the permission sets `D365 AUTOMATION` and `EXTEN. MGT. - ADMIN`.
 
-**Nell'app:** *Connessioni → Nuova connessione*. Inserisci cliente, environment, tenant, client ID e
-client secret, poi premi **Testa**. Il client secret viene cifrato e non si vede più.
+**In the app:** *Connessioni (Connections) → Nuova connessione (New)*. Enter customer, environment, tenant,
+client ID and client secret, then press **Testa (Test)**.
 
-**Altri environment dello stesso cliente:** sulla connessione premi **Copia**, scrivi il nuovo environment e
-salva. Tenant, client ID, client secret e notifiche restano quelli dell'originale, e il nome si compila da solo.
-Le connessioni sono raggruppate per cliente, sia nella lista sia nella scelta del deploy.
+**More environments for the same customer:** press **Copia (Copy)** on a connection, type the new environment
+name and save. Tenant, client ID, client secret and notifications are kept from the original.
 
-## Notifiche
+## Running a deploy
 
-A fine deploy l'app può avvisare via **email**, **Teams** o **Slack**. Si sceglie per ogni connessione,
-nella sezione *Notifiche*, se ricevere tutti gli esiti o solo gli errori.
+1. *Deploy* → pick the connection and drag in the `.app` files.
+2. Check the install order and the verification against the environment.
+3. Choose the options:
+   - **Schema sync mode**: *Add* (normal) or *Force Sync*, which also applies destructive schema changes;
+   - **Schedule**: *current version* (now), or *next minor / major*, meaning the app is installed when the
+     environment is updated to that version. With these two the run is marked as "scheduled" and the app
+     does not wait for an outcome;
+   - **When**: now, at a date and time, or recurring.
+4. Start. For a production environment you have to type its name to confirm.
 
-**Email:** la prima volta vai in *Impostazioni* e inserisci il server di posta (SMTP), poi premi
-**Invia email di prova**. Per Office 365 i dati sono:
+If an app fails, the deploy stops and the rest are skipped. The Automation API does not return an error
+message, only a status: the details are in the *Extension Deployment Status* page of Business Central.
+Errors returned directly by the API calls are shown in full. From *Storico (History)* you can review any
+deploy and rerun it.
 
-| Campo | Valore |
+## Notifications
+
+At the end of a deploy the app can notify you by **email**, **Teams** or **Slack**. For each connection you
+choose whether to receive every result or only failures.
+
+**Email:** the first time, open *Impostazioni (Settings)* and enter your mail (SMTP) server, then press
+the test button. For Office 365:
+
+| Field | Value |
 |---|---|
 | Server | `smtp.office365.com` |
-| Porta | `587` |
-| Sicurezza | STARTTLS |
-| Utente | il tuo indirizzo email |
-| Password | la tua password, oppure una password per le app se hai la verifica in due passaggi |
+| Port | `587` |
+| Security | STARTTLS |
+| User | your email address |
+| Password | your password, or an app password if you use two-step verification |
 
-Se la prova risponde con un errore di autenticazione (`535 5.7.139`), l'invio SMTP è disattivato per il tuo
-account: chiedi all'IT di attivare *SMTP AUTH* o un server di posta interno.
+If the test fails with an authentication error (`535 5.7.139`), SMTP sending is disabled for your account:
+ask your IT department to enable *SMTP AUTH*, or to give you an internal mail server.
 
-Poi, in ogni connessione, scrivi i destinatari separati da virgola.
+Then, in each connection, enter the recipients separated by commas.
 
-## Fare un deploy
+**Teams / Slack:** paste a webhook URL in the connection. For Teams, use a Workflows flow ("post to a
+channel when a webhook request is received"); for Slack, an Incoming Webhook. The URL is encrypted.
 
-1. *Deploy* → scegli la connessione e trascina i file `.app`.
-2. Controlla l'ordine di installazione e la verifica sull'environment.
-3. Scegli le opzioni:
-   - **Schema sync mode**: *Add* (normale) oppure *Force Sync*, che applica anche modifiche che cancellano dati;
-   - **Schedule**: *versione corrente* (subito) oppure *prossima minor / major*, cioè quando l'environment
-     si aggiornerà a quella versione;
-   - **Quando**: subito, a una data e ora, oppure ricorrente.
-4. Avvia. Per un environment di produzione devi scriverne il nome per confermare.
+## Sharing the app with a colleague
 
-Se un'app fallisce, il deploy si ferma e le successive vengono saltate. Il dettaglio dell'errore è nella pagina
-*Extension Deployment Status* di BC. Da *Storico* puoi rivedere ogni deploy e rilanciarlo.
+1. Double-click **`Crea-pacchetto.bat`**: it creates `bc-deployer.zip` on your Desktop **without** your data
+   (password, key and connections).
+2. Send the zip.
+3. Your colleague extracts it, runs `Installa.bat` (pressing **Enter** at the key question and choosing their
+   own password), then runs `Avvia.bat` and creates their own connections.
 
-## Passare l'app a un collega
+Everyone has their own data. Never send your `.env`, and never send keys or client secrets by chat or email.
 
-1. Doppio clic su **`Crea-pacchetto.bat`**: crea `bc-deployer.zip` sul Desktop **senza** i tuoi dati
-   (password, chiave e connessioni).
-2. Manda lo zip.
-3. Il collega:
-   1. lo estrae;
-   2. lancia `Installa.bat`, preme **Invio** alla domanda sulla chiave e sceglie la sua password;
-   3. lancia `Avvia.bat` e crea le sue connessioni.
+## Where the data lives
 
-Ognuno ha i suoi dati. Non mandare mai il tuo `.env` e non mandare chiavi o client secret per chat o email.
-
-Al collega servono:
-- Python 3.12 o più recente (`py -0` mostra le versioni);
-- internet per scaricare le librerie;
-- accesso a `login.microsoftonline.com` e `api.businesscentral.dynamics.com`.
-
-## Dove sono i dati
-
-| Cosa | Dove |
+| What | Where |
 |---|---|
-| password (cifrata) e chiave | `.env` nella cartella dell'app |
-| connessioni, impostazioni email, storico, deploy programmati, pacchetti | `%LOCALAPPDATA%\bcdeployer-data` |
-| Python e librerie | `%LOCALAPPDATA%\bcdeployer-venv` |
+| password (hashed) and encryption key | `.env` in the app folder |
+| connections, email settings, history, scheduled deploys, uploaded packages | `%LOCALAPPDATA%\bcdeployer-data` |
+| Python and libraries | `%LOCALAPPDATA%\bcdeployer-venv` |
 
-**Backup:** ad app chiusa, copia il file `.env` e la cartella `%LOCALAPPDATA%\bcdeployer-data`.
+The database is outside the app folder on purpose: a SQLite database inside a folder synced by OneDrive can
+get corrupted.
 
-## Problemi comuni
+**Backup:** with the app closed, copy the `.env` file and the `%LOCALAPPDATA%\bcdeployer-data` folder.
 
-| Cosa vedi | Cosa fare |
+## Troubleshooting
+
+| What you see | What to do |
 |---|---|
-| *Python non trovato* | serve il comando `py`, versione 3.12 o più recente |
-| errore nello scaricare le librerie (`ProxyError`, `SSL`) | il proxy aziendale blocca `pypi.org`: chiedi all'IT |
-| *Windows blocca alcune librerie* | su quel PC l'app non può girare: serve un server (vedi sotto) |
-| *Prima esegui Installa.bat* | lancia `Installa.bat` |
-| il browser non trova la pagina | l'app non è aperta: lancia `Avvia.bat` |
-| la finestra si chiude subito | aprila da PowerShell, nella cartella, con `.\Avvia.bat`, per leggere l'errore |
-| password dimenticata | rilancia `Installa.bat` e cambiala |
-| *Impossibile decifrare il segreto* | la chiave in `.env` è sbagliata: rilancia `Installa.bat` e incolla quella giusta |
-| le email non arrivano | apri il deploy nello *Storico*: in fondo al log c'è l'esito dell'invio. Prova il server da *Impostazioni* |
+| *Python non trovato* | you need the `py` command, Python 3.12 or later |
+| error while downloading libraries (`ProxyError`, `SSL`) | the corporate proxy blocks `pypi.org`: ask your IT department |
+| *Windows blocca alcune librerie* | application control prevents the app from running on that PC: run it on a server instead |
+| *Prima esegui Installa.bat* | run `Installa.bat` first |
+| the browser cannot find the page | the app is not running: start `Avvia.bat` |
+| the window closes immediately | open PowerShell in the folder and run `.\Avvia.bat` to read the error |
+| forgot the password | run `Installa.bat` again and change it |
+| *Impossibile decifrare il segreto* | the key in `.env` is wrong: run `Installa.bat` and paste the right one |
+| emails do not arrive | open the deploy in *Storico*: the end of the log says whether sending worked. Test the server from *Impostazioni* |
 
----
+## Development
 
-## Per chi sviluppa
+**Stack:** Python, FastAPI, SQLAlchemy (SQLite, switchable to Postgres through `DATABASE_URL`), Alembic
+migrations applied at startup, APScheduler running in-process, Jinja2 and htmx with no build step.
 
-**Configurazione.** Tutto sta in `.env`, scritto da `Installa.bat`. Le altre opzioni (dimensione massima
-dei file, giorni di conservazione dei pacchetti, timeout) sono in [.env.example](.env.example).
+**Configuration.** Everything lives in `.env`, written by `Installa.bat`. The other options (maximum file
+size, package retention days, timeouts) are listed in [.env.example](.env.example).
 
-**Su un server.** Per tenere l'app sempre accesa o usarla da più PC, segui una di queste guide:
-- [Azure App Service, passo passo](docs/guida-pc-aziendale.md);
-- [Azure con container](docs/deploy-azure.md);
-- [Render o Fly.io](docs/deploy-render-fly.md).
+**On a server.** To keep the app always on, or use it from several PCs, see the deployment guides
+(in Italian):
+- [Azure App Service, step by step](docs/guida-pc-aziendale.md)
+- [Azure with containers](docs/deploy-azure.md)
+- [Render or Fly.io](docs/deploy-render-fly.md)
 
-Deve girare con un solo processo.
+It must run as a **single process**: the scheduler and the per-environment locks live in memory.
 
-**Da riga di comando.** `bc_deploy.py` fa lo stesso deploy senza interfaccia, anche da
+**Command line.** `bc_deploy.py` does the same deploy without the web interface, for example from
 [azure-pipelines.yml](azure-pipelines.yml):
 
 ```bash
+export BC_TENANT_ID=... BC_CLIENT_ID=... BC_CLIENT_SECRET=...
 python bc_deploy.py --environment Sandbox --apps ./apps --schema-sync "Force Sync" --schedule "Next minor version"
 ```
 
-Le credenziali si passano con le variabili `BC_TENANT_ID`, `BC_CLIENT_ID` e `BC_CLIENT_SECRET`.
-
-**Test:**
+**Tests.** The suite runs against a fake Business Central built on respx, following the Microsoft
+documentation ([tests/fakebc.py](tests/fakebc.py)):
 
 ```powershell
 py -m venv $env:LOCALAPPDATA\bcdeployer-venv-dev
@@ -165,12 +204,19 @@ py -m venv $env:LOCALAPPDATA\bcdeployer-venv-dev
 & $env:LOCALAPPDATA\bcdeployer-venv-dev\Scripts\python -m pytest
 ```
 
-**Note:**
-- Lo stato di un deploy in BC restituisce solo l'esito (riuscito o fallito), senza il messaggio d'errore.
-- Per passare all'Admin Center API basta implementare l'interfaccia `DeployBackend` in
-  [app/bc/base.py](app/bc/base.py).
+**How it talks to Business Central.** For each app: create or update the `extensionUpload` record
+(Business Central keeps a single one per company), `PATCH` the package into `extensionContent`, call
+`Microsoft.NAV.upload` to start the installation, then poll `extensionDeploymentStatus` with backoff. Requests
+are retried on 429 and 5xx errors honoring `Retry-After`; the call that starts the installation is never
+retried blindly, to avoid two installations.
 
-## Licenza
+**Known limits**
+- `extensionDeploymentStatus` returns only a status, with no error message, and its possible values are not
+  documented: `Completed` and `Failed` are treated as final, anything else as "in progress".
+- To support the Admin Center API (`pteInstall`) after BC v30, implement the `DeployBackend` interface in
+  [app/bc/base.py](app/bc/base.py). The orchestration and the web interface do not need to change.
 
-Software libero, con licenza [BSD 3-Clause](LICENSE): puoi usarlo, modificarlo e ridistribuirlo, anche per
-scopi commerciali, mantenendo l'avviso di copyright. Viene fornito così com'è, senza garanzie.
+## License
+
+[BSD 3-Clause](LICENSE). You can use, modify and redistribute it, including for commercial purposes, as long as
+you keep the copyright notice. It is provided as is, without warranty.
