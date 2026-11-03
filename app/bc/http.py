@@ -26,6 +26,9 @@ API_BASE = (
     "https://api.businesscentral.dynamics.com/v2.0/{tenant}/{env}"
     "/api/microsoft/automation/v2.0"
 )
+# Admin Center API: elenco degli environment del tenant. Richiede il permesso AdminCenter.ReadWrite.All
+# e l'app autorizzata nella pagina "Authorized Microsoft Entra apps" del BC admin center.
+ADMIN_ENVIRONMENTS_URL = "https://api.businesscentral.dynamics.com/admin/v2.29/applications/BusinessCentral/environments"
 RETRY_STATUS = {429, 500, 502, 503, 504}
 MAX_WAIT = 120
 
@@ -205,14 +208,14 @@ class BCHttp:
         timeout: float | None = None,
         idempotent: bool = True,
     ) -> httpx.Response:
-        """Esegue una richiesta all'Automation API.
+        """Esegue una richiesta all'Automation API (path relativo) o a un URL completo di BC.
 
         content_factory restituisce un file aperto da inviare come body: viene
         richiamata a ogni tentativo, così un retry rimanda il file dall'inizio.
         Con idempotent=False si ritenta solo quando BC sicuramente non ha eseguito
         la richiesta (429, connessione non stabilita).
         """
-        url = f"{self.base}{path}"
+        url = path if path.startswith("https://") else f"{self.base}{path}"
         refreshed = False
         attempt = 0
         while True:

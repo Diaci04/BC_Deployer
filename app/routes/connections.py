@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session
 from ..models import Connection, DeployJob
 from ..security.crypto import SecretBoxError
 from ..security.deps import csrf_protect, get_db
-from ..services.connections import CheckResult, ConnectionInput, check_connection
+from ..bc.http import BCError
+from ..services.connections import (
+    ENV_RE, CheckResult, ConnectionInput, check_connection, list_companies, list_environments, lookup_hint,
+)
 from ..services.mail import get_smtp, send_email
 from ..services.notify import KINDS, NOTIFY_ON, build_email, build_payload, sample_run, send
 from ..web import render
@@ -86,6 +89,80 @@ def list_connections(request: Request, db: Session = Depends(get_db)):
     conns = sorted(conns, key=lambda c: (c.customer is None, (c.customer or "").lower(), c.name.lower()))
     groups = [(k, list(g)) for k, g in groupby(conns, key=lambda c: c.customer)]
     return render(request, "connections/list.html", groups=groups, n=len(conns))
+
+
+# ---- elenchi di environment e company per il form (il secret non torna mai al browser)
+
+def _lookup_credentials(db: Session, box, tenant_id: str, client_id: str, client_secret: str,
+                        conn_id: int | None, copy_from: int | None) -> tuple[str, str, str] | str:
+    """Credenziali da usare: quelle del form, con il secret salvato se il campo è vuoto. Oppure un messaggio."""
+    data = ConnectionInput(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret, name="x",
+                           environment="x")
+    errors = data.validate(require_secret=False)
+    if errors.get("tenant_id") or errors.get("client_id"):
+        return "Compila prima Tenant ID e Client ID"
+    secret = data.client_secret
+    if not secret:
+        saved = db.get(Connection, conn_id or copy_from) if (conn_id or copy_from) else None
+        if saved is None:
+            return "Compila prima il client secret"
+        try:
+            secret = box.decrypt(saved.client_secret_enc)
+        except SecretBoxError as e:
+            return str(e)
+    return data.tenant_id, data.client_id, secret
+
+
+@router.post("/lookup/environments")
+async def lookup_environments(
+    request: Request,
+    tenant_id: str = Form(""), client_id: str = Form(""), client_secret: str = Form(""),
+    environment: str = Form(""), conn_id: int | None = Form(None), copy_from: int | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    state = request.app.state
+    creds = await run_in_threadpool(
+        _lookup_credentials, db, state.secret_box, tenant_id, client_id, client_secret, conn_id, copy_from
+    )
+    ctx = {"value": environment.strip(), "envs": None, "message": None, "auto": False}
+    if isinstance(creds, str):
+        ctx["message"] = creds
+    else:
+        try:
+            ctx["envs"] = await run_in_threadpool(list_environments, *creds, state.settings, transport=state.bc_transport)
+            if not ctx["envs"]:
+                ctx["envs"], ctx["message"] = None, "Nessun environment trovato nel tenant: scrivi il nome"
+        except BCError as e:
+            ctx["message"] = (f"Elenco non disponibile ({lookup_hint(e)}): scrivi il nome. Per l'elenco serve il "
+                              "permesso AdminCenter.ReadWrite.All e l'app autorizzata nel BC admin center.")
+    return render(request, "connections/_env_field.html", **ctx)
+
+
+@router.post("/lookup/companies")
+async def lookup_companies(
+    request: Request,
+    tenant_id: str = Form(""), client_id: str = Form(""), client_secret: str = Form(""),
+    environment: str = Form(""), company: str = Form(""),
+    conn_id: int | None = Form(None), copy_from: int | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    state = request.app.state
+    ctx = {"value": company.strip(), "companies": None, "message": None, "auto": False}
+    creds = await run_in_threadpool(
+        _lookup_credentials, db, state.secret_box, tenant_id, client_id, client_secret, conn_id, copy_from
+    )
+    if isinstance(creds, str):
+        ctx["message"] = creds
+    elif not ENV_RE.match(environment.strip()):
+        ctx["message"] = "Scegli prima l'environment"
+    else:
+        try:
+            ctx["companies"] = await run_in_threadpool(
+                list_companies, *creds, environment.strip(), state.settings, transport=state.bc_transport
+            )
+        except BCError as e:
+            ctx["message"] = f"Elenco non disponibile ({lookup_hint(e)}): scrivi il nome o lascia vuoto"
+    return render(request, "connections/_company_field.html", **ctx)
 
 
 @router.get("/new")

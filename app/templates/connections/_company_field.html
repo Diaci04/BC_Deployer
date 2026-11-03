@@ -1,0 +1,39 @@
+{# Campo company: menu a tendina con le company dell'environment (Automation API), altrimenti testo libero. #}
+{% set err = error if error is defined else None %}
+<div id="company-field" class="lookup"
+     {% if auto %}hx-post="/connections/lookup/companies" hx-trigger="load" hx-include="closest form" hx-swap="outerHTML"{% endif %}>
+  <label class="field {{ 'has-error' if err }}">
+    <span>Company</span>
+    {% if companies is not none %}
+    {% set names = companies|map(attribute="name")|list %}
+    <select name="company">
+      <option value="">La prima disponibile</option>
+      {% for c in companies %}
+      <option value="{{ c.name }}" {% if c.name == value or (c.displayName and c.displayName == value) %}selected{% endif %}>
+        {{ c.displayName or c.name }}{% if c.displayName and c.displayName != c.name %} ({{ c.name }}){% endif %}
+      </option>
+      {% endfor %}
+      {% if value and value not in names and value not in companies|map(attribute="displayName")|list %}
+      <option value="{{ value }}" selected>{{ value }} (non trovata)</option>
+      {% endif %}
+    </select>
+    {% else %}
+    <input name="company" value="{{ value }}" autocomplete="off" spellcheck="false">
+    {% endif %}
+    {% if err %}<small class="error">{{ err }}</small>
+    {% elif message %}<small class="help">{{ message }}</small>
+    {% else %}<small class="help">Se vuoto si usa la prima company</small>{% endif %}
+  </label>
+  <div class="lookup-actions">
+    {% if auto %}
+    <span class="help"><span class="spinner"></span> carico l'elenco da Business Central…</span>
+    {% else %}
+    <button type="button" class="btn btn-sm btn-ghost" hx-post="/connections/lookup/companies" hx-target="#company-field"
+            hx-swap="outerHTML" hx-include="closest form" hx-indicator="#company-spin"
+            title="Legge le company dell'environment scelto">
+      {{ "↻ Ricarica elenco" if companies is not none else "Carica elenco da Business Central" }}
+    </button>
+    <span id="company-spin" class="spinner htmx-indicator" role="status" aria-label="Caricamento"></span>
+    {% endif %}
+  </div>
+</div>

@@ -87,8 +87,17 @@ Do this once per tenant.
 1. Open the *Microsoft Entra Applications* page → new record with the Client ID, state *Enabled*.
 2. Assign the permission sets `D365 AUTOMATION` and `EXTEN. MGT. - ADMIN`.
 
-**In the app:** *Connessioni (Connections) → Nuova connessione (New)*. Enter customer, environment, tenant,
-client ID and client secret, then press **Testa (Test)**.
+**Optional, to pick the environment from a list:** also add the *Application* permission
+`AdminCenter.ReadWrite.All` (same *Dynamics 365 Business Central* API) and authorize the app in the **Business
+Central admin center**, page *Authorized Microsoft Entra apps*, by pasting its Client ID. Without this step the
+app still works: you type the environment name yourself.
+
+**In the app:** *Connessioni (Connections) → Nuova connessione (New)*. Enter tenant, client ID and client secret,
+then press **Carica elenco da Business Central (Load list from Business Central)** to pick the environment and
+company from dropdowns. Choosing a production environment ticks *Produzione* automatically. Save, then press
+**Testa (Test)**.
+
+To edit a connection, just **click its card**: the lists load automatically.
 
 **More environments for the same customer:** press **Copia (Copy)** on a connection, type the new environment
 name and save. Tenant, client ID, client secret and notifications are kept from the original.

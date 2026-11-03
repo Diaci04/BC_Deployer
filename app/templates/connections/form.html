@@ -17,8 +17,13 @@
 
 {% if source %}
 <div class="alert alert-info">
-  Indica il nuovo <strong>environment</strong>. Client secret e webhook restano quelli di «{{ source.name }}»
+  Scegli il nuovo <strong>environment</strong>. Client secret e webhook restano quelli di «{{ source.name }}»
   se lasci vuoti i campi: non serve reinserirli.
+</div>
+{% elif not conn %}
+<div class="alert alert-info">
+  Compila prima <strong>Tenant ID, Client ID e client secret</strong>, poi usa «Carica elenco» per scegliere
+  environment e company da Business Central.
 </div>
 {% endif %}
 
@@ -26,27 +31,7 @@
       {% if not conn %}data-autoname{% endif %}>
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   {% if source %}<input type="hidden" name="copy_from" value="{{ source.id }}">{% endif %}
-
-  <section class="card form-section">
-    <h2>Environment</h2>
-    <div class="form-grid">
-      <label class="field {{ 'has-error' if errors.get('customer') }}">
-        <span>Cliente</span>
-        <input name="customer" value="{{ data.customer }}" list="customers" autocomplete="off" maxlength="100">
-        <datalist id="customers">{% for c in customers %}<option value="{{ c }}">{% endfor %}</datalist>
-        {% if errors.get('customer') %}<small class="error">{{ errors.customer }}</small>
-        {% else %}<small class="help">Facoltativo: raggruppa gli environment dello stesso cliente</small>{% endif %}
-      </label>
-      {{ field("environment", "Environment BC", help="Nome come in Admin Center, es. Production o Sandbox",
-               attrs="autofocus" if source else "") }}
-      {{ field("name", "Nome della connessione", help="Come appare nell'app") }}
-      {{ field("company", "Company", required=false, help="Se vuoto si usa la prima company") }}
-      <label class="check full">
-        <input type="checkbox" name="is_production" value="true" {% if data.is_production %}checked{% endif %}>
-        <span><strong>Environment di produzione</strong><br><small class="help">Prima di ogni deploy chiede di digitare il nome dell'environment</small></span>
-      </label>
-    </div>
-  </section>
+  {% if conn %}<input type="hidden" name="conn_id" value="{{ conn.id }}">{% endif %}
 
   <section class="card form-section">
     <h2>Accesso <small>app registration in Entra ID</small></h2>
@@ -59,6 +44,30 @@
                placeholder="{{ 'salvato: lascia vuoto per non cambiarlo' if conn else ('uguale a «' ~ source.name ~ '»: lascia vuoto per usarlo' if source else '') }}">
         {% if errors.get('client_secret') %}<small class="error">{{ errors.client_secret }}</small>
         {% else %}<small class="help">Viene cifrato e non sarà più visibile dopo il salvataggio.</small>{% endif %}
+      </label>
+    </div>
+  </section>
+
+  <section class="card form-section">
+    <h2>Environment</h2>
+    <div class="form-grid">
+      <label class="field {{ 'has-error' if errors.get('customer') }}">
+        <span>Cliente</span>
+        <input name="customer" value="{{ data.customer }}" list="customers" autocomplete="off" maxlength="100">
+        <datalist id="customers">{% for c in customers %}<option value="{{ c }}">{% endfor %}</datalist>
+        {% if errors.get('customer') %}<small class="error">{{ errors.customer }}</small>
+        {% else %}<small class="help">Facoltativo: raggruppa gli environment dello stesso cliente</small>{% endif %}
+      </label>
+      {% with value=data.environment, envs=None, message=None, error=errors.get("environment"), auto=(conn or source) and not errors %}
+        {% include "connections/_env_field.html" %}
+      {% endwith %}
+      {{ field("name", "Nome della connessione", help="Come appare nell'app") }}
+      {% with value=data.company, companies=None, message=None, error=errors.get("company"), auto=conn and not errors %}
+        {% include "connections/_company_field.html" %}
+      {% endwith %}
+      <label class="check full">
+        <input type="checkbox" name="is_production" value="true" {% if data.is_production %}checked{% endif %}>
+        <span><strong>Environment di produzione</strong><br><small class="help">Prima di ogni deploy chiede di digitare il nome dell'environment</small></span>
       </label>
     </div>
   </section>

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from ..bc.automation import AutomationClient
-from ..bc.http import BCError, BCHttp
+from ..bc.http import ADMIN_ENVIRONMENTS_URL, BCAuthError, BCError, BCHttp
 from ..config import Settings
 from ..models import Connection
 from ..security.crypto import SecretBox, SecretBoxError
@@ -112,6 +112,49 @@ def make_http(
         transport=transport,
         **kw,
     )
+
+
+@dataclass
+class BCEnvironment:
+    name: str
+    type: str  # Production | Sandbox
+    status: str
+
+
+def _lookup_http(tenant: str, client_id: str, secret: str, environment: str, settings: Settings, transport) -> BCHttp:
+    # Chiamata interattiva: un solo tentativo, nessuna attesa lunga
+    return BCHttp(tenant, client_id, secret, environment, timeout=settings.bc_timeout, transport=transport,
+                  max_retries=1, sleep=lambda s: None)
+
+
+def list_environments(
+    tenant: str, client_id: str, secret: str, settings: Settings, *, transport: httpx.BaseTransport | None = None
+) -> list[BCEnvironment]:
+    """Environment del tenant dall'Admin Center API. Solleva BCError se l'app non è autorizzata."""
+    with _lookup_http(tenant, client_id, secret, "", settings, transport) as http:
+        items = http.request("GET", ADMIN_ENVIRONMENTS_URL).json().get("value", [])
+    envs = [BCEnvironment(i.get("name", ""), i.get("type", ""), i.get("status", "")) for i in items if i.get("name")]
+    # Prima la produzione, poi le sandbox, in ordine alfabetico
+    return sorted(envs, key=lambda e: (e.type != "Production", e.name.lower()))
+
+
+def list_companies(
+    tenant: str, client_id: str, secret: str, environment: str, settings: Settings,
+    *, transport: httpx.BaseTransport | None = None,
+) -> list[dict]:
+    with _lookup_http(tenant, client_id, secret, environment, settings, transport) as http:
+        return AutomationClient(http).list_companies()
+
+
+def lookup_hint(e: BCError) -> str:
+    """Messaggio breve per gli elenchi nel form."""
+    if isinstance(e, BCAuthError):
+        return f"credenziali non valide ({e})"
+    if e.status_code in (401, 403):
+        return "l'app non ha accesso"
+    if e.status_code == 404:
+        return "environment non trovato"
+    return str(e)
 
 
 @dataclass

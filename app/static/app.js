@@ -22,21 +22,33 @@
     toast("Server non raggiungibile");
   });
 
-  // Nuova connessione o copia: il nome si compone da cliente ed environment, finché non lo modifichi a mano
+  // Nuova connessione o copia: il nome si compone da cliente ed environment, finché non lo modifichi a mano.
+  // Gli ascoltatori sono sul form perché il campo environment viene sostituito (testo ↔ menu a tendina).
   function autoName(form) {
     var name = form.querySelector('input[name="name"]');
-    var customer = form.querySelector('input[name="customer"]');
-    var env = form.querySelector('input[name="environment"]');
-    if (!name || !env) return;
+    if (!name) return;
     var auto = name.value === "" || / \(copia\)$/.test(name.value);
-    name.addEventListener("input", function () { auto = name.value === ""; });
     function update() {
-      if (!auto || !env.value.trim()) return;
+      var env = form.elements.environment, customer = form.elements.customer;
+      if (!auto || !env || !env.value.trim()) return;
       name.value = [customer ? customer.value.trim() : "", env.value.trim()].filter(Boolean).join(" - ");
     }
-    env.addEventListener("input", update);
-    if (customer) customer.addEventListener("input", update);
+    form.addEventListener("input", function (e) {
+      if (e.target === name) auto = name.value === "";
+      else if (e.target.name === "environment" || e.target.name === "customer") update();
+    });
+    form.addEventListener("change", function (e) {
+      if (e.target.name === "environment") update();
+    });
   }
+
+  // Scegliendo l'environment dal menu, "produzione" si spunta in base al tipo letto da Business Central
+  document.addEventListener("change", function (e) {
+    var opt = e.target.name === "environment" && e.target.selectedOptions && e.target.selectedOptions[0];
+    if (!opt || !opt.dataset.production || !e.target.form) return;
+    var prod = e.target.form.elements.is_production;
+    if (prod) prod.checked = opt.dataset.production === "true";
+  });
 
   // I messaggi di conferma spariscono dopo qualche secondo
   document.addEventListener("DOMContentLoaded", function () {

@@ -28,7 +28,8 @@
     <article class="card conn" id="conn-{{ c.id }}">
       <div class="conn-head">
         <div>
-          <div class="conn-env">{{ c.environment }}</div>
+          {# Il link copre tutta la card (vedi .conn-link nel CSS): clic ovunque = modifica #}
+          <a class="conn-link conn-env" href="/connections/{{ c.id }}/edit" title="Clicca per modificare «{{ c.name }}»">{{ c.environment }}</a>
           <div class="conn-name">{{ c.name }}</div>
         </div>
         {% if c.is_production %}<span class="badge badge-prod">Produzione</span>{% else %}<span class="badge badge-sandbox">Sandbox</span>{% endif %}
@@ -45,10 +46,13 @@
       </div>
       <div class="actions">
         <button class="btn btn-sm" hx-post="/connections/{{ c.id }}/test" hx-target="#test-{{ c.id }}"
-                hx-indicator="#test-{{ c.id }}-spin" hx-disabled-elt="this">Testa</button>
-        <a class="btn btn-sm" href="/deploy?connection_id={{ c.id }}">Deploy</a>
+                hx-indicator="#test-{{ c.id }}-spin" hx-disabled-elt="this"
+                title="Verifica credenziali e accesso all'environment">Testa</button>
+        <a class="btn btn-sm" href="/deploy?connection_id={{ c.id }}" title="Nuovo deploy su questo environment">Deploy</a>
         <a class="btn btn-sm" href="/connections/{{ c.id }}/copy" title="Nuova connessione con gli stessi dati, per un altro environment">Copia</a>
-        <a class="btn btn-sm" href="/connections/{{ c.id }}/edit">Modifica</a>
+        <button class="btn btn-sm btn-danger" hx-post="/connections/{{ c.id }}/delete"
+                hx-confirm="Eliminare la connessione «{{ c.name }}»? Lo storico dei deploy resta."
+                title="Elimina la connessione">Elimina</button>
         <span id="test-{{ c.id }}-spin" class="spinner htmx-indicator" role="status" aria-label="Test in corso"></span>
       </div>
       <div id="test-{{ c.id }}" aria-live="polite"></div>

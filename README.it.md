@@ -53,8 +53,17 @@ Va fatto una volta per ogni tenant.
 1. Pagina *Microsoft Entra Applications* → nuovo record con il Client ID, stato *Enabled*.
 2. Assegna i permission set `D365 AUTOMATION` ed `EXTEN. MGT. - ADMIN`.
 
-**Nell'app:** *Connessioni → Nuova connessione*. Inserisci cliente, environment, tenant, client ID e
-client secret, poi premi **Testa**. Il client secret viene cifrato e non si vede più.
+**Facoltativo, per scegliere l'environment da un menu:** aggiungi anche il permesso *Application*
+`AdminCenter.ReadWrite.All` (stessa API *Dynamics 365 Business Central*) e autorizza l'app nel **Business Central
+admin center**, pagina *Authorized Microsoft Entra apps*, incollando il Client ID. Senza questo passaggio l'app
+funziona lo stesso: l'environment si scrive a mano.
+
+**Nell'app:** *Connessioni → Nuova connessione*. Inserisci tenant, client ID e client secret, poi premi
+**Carica elenco da Business Central** per scegliere environment e company dai menu a tendina. Scegliendo un
+environment di produzione, la spunta *Produzione* si mette da sola. Salva e premi **Testa**. Il client secret
+viene cifrato e non si vede più.
+
+Per modificare una connessione basta **cliccare sulla sua card**: gli elenchi si caricano da soli.
 
 **Altri environment dello stesso cliente:** sulla connessione premi **Copia**, scrivi il nuovo environment e
 salva. Tenant, client ID, client secret e notifiche restano quelli dell'originale, e il nome si compila da solo.

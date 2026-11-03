@@ -1,0 +1,41 @@
+{# Campo environment: menu a tendina se l'elenco arriva dall'Admin Center API, altrimenti testo libero.
+   Con auto=True si carica da solo all'apertura della pagina (modifica e copia: il secret è già salvato). #}
+{% set err = error if error is defined else None %}
+<div id="env-field" class="lookup"
+     {% if auto %}hx-post="/connections/lookup/environments" hx-trigger="load" hx-include="closest form" hx-swap="outerHTML"{% endif %}>
+  <label class="field {{ 'has-error' if err }}">
+    <span>Environment BC <span class="req">*</span></span>
+    {% if envs %}
+    {% set names = envs|map(attribute="name")|list %}
+    <select name="environment" required
+            hx-post="/connections/lookup/companies" hx-trigger="change" hx-target="#company-field"
+            hx-swap="outerHTML" hx-include="closest form">
+      <option value="">Scegli l'environment…</option>
+      {% for e in envs %}
+      <option value="{{ e.name }}" data-production="{{ 'true' if e.type == 'Production' else 'false' }}" {% if e.name == value %}selected{% endif %}>
+        {{ e.name }} · {{ e.type }}{% if e.status and e.status != "Active" %} ({{ e.status }}){% endif %}
+      </option>
+      {% endfor %}
+      {% if value and value not in names %}<option value="{{ value }}" selected>{{ value }} (non trovato nel tenant)</option>{% endif %}
+    </select>
+    {% else %}
+    <input name="environment" value="{{ value }}" autocomplete="off" spellcheck="false" required>
+    {% endif %}
+    {% if err %}<small class="error">{{ err }}</small>
+    {% elif message %}<small class="help">{{ message }}</small>
+    {% elif envs %}<small class="help">{{ envs|length }} environment nel tenant</small>
+    {% else %}<small class="help">Nome come in Admin Center, es. Production o Sandbox</small>{% endif %}
+  </label>
+  <div class="lookup-actions">
+    {% if auto %}
+    <span class="help"><span class="spinner"></span> carico l'elenco da Business Central…</span>
+    {% else %}
+    <button type="button" class="btn btn-sm btn-ghost" hx-post="/connections/lookup/environments" hx-target="#env-field"
+            hx-swap="outerHTML" hx-include="closest form" hx-indicator="#env-spin"
+            title="Legge l'elenco degli environment del tenant da Business Central">
+      {{ "↻ Ricarica elenco" if envs else "Carica elenco da Business Central" }}
+    </button>
+    <span id="env-spin" class="spinner htmx-indicator" role="status" aria-label="Caricamento"></span>
+    {% endif %}
+  </div>
+</div>

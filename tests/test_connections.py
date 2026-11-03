@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs
+
 import httpx
 import respx
 from sqlalchemy import select
@@ -195,3 +197,77 @@ def test_network_error_is_reported(auth_client, app, monkeypatch):
     app.state.bc_transport = httpx.MockTransport(boom)
     r = auth_client.post(f"/connections/{conn.id}/test")
     assert "non raggiungibile" in r.text
+
+
+# ---- elenchi di environment e company nel form
+
+ADMIN_ENVS = "https://api.businesscentral.dynamics.com/admin/v2.29/applications/BusinessCentral/environments"
+CREDS = {"tenant_id": TENANT, "client_id": CLIENT, "client_secret": SECRET}
+
+
+@respx.mock
+def test_lookup_environments_gives_a_dropdown(auth_client):
+    respx.post(TOKEN_URL).respond(json={"access_token": "tok", "expires_in": 3600})
+    respx.get(ADMIN_ENVS).respond(json={"value": [
+        {"name": "Sandbox", "type": "Sandbox", "status": "Active"},
+        {"name": "Production", "type": "Production", "status": "Active"},
+    ]})
+    r = auth_client.post("/connections/lookup/environments", data={**CREDS, "environment": "Sandbox"})
+    assert '<select name="environment"' in r.text
+    # produzione per prima, tipo letto da BC per spuntare "produzione"
+    assert r.text.index('value="Production"') < r.text.index('value="Sandbox"')
+    assert 'value="Production" data-production="true"' in r.text
+    assert 'value="Sandbox" data-production="false" selected' in r.text
+    assert SECRET not in r.text
+
+
+@respx.mock
+def test_lookup_environments_without_admin_permission_keeps_text_field(auth_client):
+    respx.post(TOKEN_URL).respond(json={"access_token": "tok", "expires_in": 3600})
+    respx.get(ADMIN_ENVS).respond(403, json={"error": {"code": "Forbidden", "message": "no"}})
+    r = auth_client.post("/connections/lookup/environments", data={**CREDS, "environment": "UAT"})
+    assert '<input name="environment" value="UAT"' in r.text
+    assert "AdminCenter.ReadWrite.All" in r.text and SECRET not in r.text
+
+
+def test_lookup_needs_credentials(auth_client):
+    r = auth_client.post("/connections/lookup/environments", data={"tenant_id": "", "client_id": ""})
+    assert "Compila prima Tenant ID e Client ID" in r.text
+    r = auth_client.post("/connections/lookup/environments", data={**CREDS, "client_secret": ""})
+    assert "Compila prima il client secret" in r.text
+
+
+@respx.mock
+def test_lookup_uses_saved_secret_when_editing(auth_client, app):
+    _create(auth_client)
+    conn = _conn(app)
+    token = respx.post(TOKEN_URL).respond(json={"access_token": "tok", "expires_in": 3600})
+    respx.get(f"{API}/companies").respond(json={"value": [
+        {"id": "c1", "name": "CRONUS IT", "displayName": "CRONUS IT"},
+        {"id": "c2", "name": "MY CO", "displayName": "My Company"},
+    ]})
+    r = auth_client.post("/connections/lookup/companies", data={
+        **CREDS, "client_secret": "", "conn_id": conn.id, "environment": "Sandbox", "company": "MY CO"})
+    assert '<select name="company">' in r.text and 'value="MY CO" selected' in r.text and "My Company" in r.text
+    sent = parse_qs(token.calls.last.request.content.decode())
+    assert sent["client_secret"] == [SECRET]  # quello salvato, decifrato lato server
+    assert SECRET not in r.text
+
+
+def test_edit_page_loads_lists_automatically(auth_client, app):
+    _create(auth_client)
+    conn = _conn(app)
+    page = auth_client.get(f"/connections/{conn.id}/edit").text
+    assert 'hx-post="/connections/lookup/environments" hx-trigger="load"' in page
+    assert 'hx-post="/connections/lookup/companies" hx-trigger="load"' in page
+    assert f'name="conn_id" value="{conn.id}"' in page
+    # nuova connessione: niente caricamento automatico, servono prima le credenziali
+    assert 'hx-trigger="load"' not in auth_client.get("/connections/new").text
+
+
+def test_card_opens_edit_and_has_delete(auth_client, app):
+    _create(auth_client)
+    conn = _conn(app)
+    page = auth_client.get("/connections").text
+    assert f'class="conn-link conn-env" href="/connections/{conn.id}/edit" title="Clicca per modificare' in page
+    assert f'hx-post="/connections/{conn.id}/delete"' in page and ">Modifica<" not in page
