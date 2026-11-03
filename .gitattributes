@@ -1,0 +1,2 @@
+# I file .bat devono avere i fine riga di Windows, altrimenti cmd li esegue male
+*.bat text eol=crlf

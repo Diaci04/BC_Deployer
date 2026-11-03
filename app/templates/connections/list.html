@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Connessioni{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Connessioni</h1>
+    <p class="sub">Un environment Business Central per connessione. Usa <strong>Copia</strong> per aggiungere altri environment dello stesso cliente.</p>
+  </div>
+  <a class="btn btn-primary" href="/connections/new">+ Nuova connessione</a>
+</div>
+
+{% if not n %}
+<div class="empty">
+  <strong>Nessuna connessione</strong>
+  Serve il Tenant ID, il Client ID e il client secret di un'app registrata in Entra ID.
+  <div><a class="btn btn-primary" href="/connections/new">Crea la prima connessione</a></div>
+</div>
+{% endif %}
+
+{% for customer, conns in groups %}
+<section class="group">
+  <div class="group-head">
+    <h2>{{ customer or "Senza cliente" }}</h2>
+    <span class="help">{{ conns|length }} environment</span>
+  </div>
+  <div class="cards">
+    {% for c in conns %}
+    <article class="card conn" id="conn-{{ c.id }}">
+      <div class="conn-head">
+        <div>
+          <div class="conn-env">{{ c.environment }}</div>
+          <div class="conn-name">{{ c.name }}</div>
+        </div>
+        {% if c.is_production %}<span class="badge badge-prod">Produzione</span>{% else %}<span class="badge badge-sandbox">Sandbox</span>{% endif %}
+      </div>
+      <div class="conn-meta">
+        <span>Tenant <span class="mono">{{ c.tenant_id }}</span></span>
+        <span>Company: {{ c.company or "la prima disponibile" }}</span>
+        <span>Notifiche:
+          {%- set ch = [] %}
+          {%- if c.webhook_kind %}{% set _ = ch.append({"teams": "Teams", "slack": "Slack", "generic": "Webhook"}[c.webhook_kind]) %}{% endif %}
+          {%- if c.email_list %}{% set _ = ch.append("email (" ~ c.email_list|length ~ ")") %}{% endif %}
+          {{ ch|join(", ") if ch else "nessuna" }}{% if ch and c.notify_on == "failure" %}, solo errori{% endif %}
+        </span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm" hx-post="/connections/{{ c.id }}/test" hx-target="#test-{{ c.id }}"
+                hx-indicator="#test-{{ c.id }}-spin" hx-disabled-elt="this">Testa</button>
+        <a class="btn btn-sm" href="/deploy?connection_id={{ c.id }}">Deploy</a>
+        <a class="btn btn-sm" href="/connections/{{ c.id }}/copy" title="Nuova connessione con gli stessi dati, per un altro environment">Copia</a>
+        <a class="btn btn-sm" href="/connections/{{ c.id }}/edit">Modifica</a>
+        <span id="test-{{ c.id }}-spin" class="spinner htmx-indicator" role="status" aria-label="Test in corso"></span>
+      </div>
+      <div id="test-{{ c.id }}" aria-live="polite"></div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

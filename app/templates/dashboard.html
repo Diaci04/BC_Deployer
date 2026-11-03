@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="sub">Panoramica dei deploy su Business Central</p>
+  </div>
+  <a class="btn btn-primary" href="/deploy">+ Nuovo deploy</a>
+</div>
+
+{% if n_connections == 0 %}
+<div class="empty">
+  <strong>Benvenuto in BC Deployer</strong>
+  Per iniziare crea una connessione a un environment Business Central.
+  <div><a class="btn btn-primary" href="/connections/new">Crea la prima connessione</a></div>
+</div>
+{% else %}
+<div class="tiles">
+  <a class="card tile" href="/connections"><span class="tile-num">{{ n_connections }}</span><span class="tile-label">Connessioni</span></a>
+  <a class="card tile tile-warn" href="/jobs"><span class="tile-num">{{ n_jobs }}</span><span class="tile-label">Deploy programmati attivi</span></a>
+  <a class="card tile tile-ok" href="/runs?status=succeeded"><span class="tile-num">{{ week_ok }}</span><span class="tile-label">Riusciti negli ultimi 7 giorni</span></a>
+  <a class="card tile {{ 'tile-err' if week_ko else 'tile-ok' }}" href="/runs?status=failed"><span class="tile-num">{{ week_ko }}</span><span class="tile-label">Falliti negli ultimi 7 giorni</span></a>
+</div>
+{% endif %}
+
+{% if active %}
+<section class="card">
+  <div class="section-head"><h2>In corso</h2></div>
+  <ul class="plan">
+    {% for r in active %}
+    <li><a href="/runs/{{ r.id }}">#{{ r.id }} · {{ r.connection_name }} · {{ r.environment }}</a>
+        <span class="status status-{{ r.status }}">{{ RUN_STATUS[r.status] }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if n_connections %}
+<div class="two-col section-gap">
+  <section class="card">
+    <div class="section-head"><h2>Ultime esecuzioni</h2><a href="/runs">Storico →</a></div>
+    {% if not recent %}<p class="muted">Nessuna esecuzione. <a href="/deploy">Fai il primo deploy</a>.</p>{% endif %}
+    <ul class="plan">
+      {% for r in recent %}
+      <li><a href="/runs/{{ r.id }}">#{{ r.id }} · {{ r.connection_name }}</a>
+          <span class="actions"><span class="help">{{ fmt_dt(r.created_at) }}</span>
+          <span class="status status-{{ r.status }}">{{ RUN_STATUS[r.status] }}</span></span></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><h2>Prossimi deploy programmati</h2><a href="/jobs">Tutti ({{ n_jobs }}) →</a></div>
+    {% if not upcoming %}<p class="muted">Nessun deploy programmato.</p>{% endif %}
+    <ul class="plan">
+      {% for j, when in upcoming %}
+      <li><a href="/jobs/{{ j.id }}">{{ j.name }}</a> <span class="help">{{ fmt_dt(when) }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endif %}
+
+<div class="section-gap">{% include "_deprecation.html" %}</div>
+{% endblock %}

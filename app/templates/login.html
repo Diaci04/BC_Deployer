@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Accedi{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-box card">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">BC</span>BC Deployer</div>
+    {% if error %}<div class="alert alert-err" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ login_csrf }}">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <label class="field"><span>Utente</span><input name="username" value="{{ '' if settings.is_production else settings.admin_username }}" autocomplete="username" required></label>
+      <label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required autofocus></label>
+      <button class="btn btn-primary btn-lg" type="submit">Accedi</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

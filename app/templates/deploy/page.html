@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Deploy{% endblock %}
+{% block scripts %}<script src="/static/deploy.js" defer></script>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Nuovo deploy</h1>
+    <p class="sub">Carica i pacchetti: l'ordine di installazione viene calcolato dalle dipendenze.</p>
+  </div>
+</div>
+{% if not connections %}
+<div class="empty">
+  <strong>Nessuna connessione</strong>
+  Prima crea una <a href="/connections/new">connessione</a> a un environment Business Central.
+</div>
+{% else %}
+<form id="deploy-form" class="stack" hx-post="/deploy/preview" hx-trigger="files-changed, change from:#connection_id, change from:input[name=when]"
+      hx-target="#preview" data-max-mb="{{ settings.max_app_size_mb }}">
+  <section class="card stack">
+    <h2 class="step-title"><span class="step">1</span>Dove</h2>
+    <select id="connection_id" name="connection_id" aria-label="Connessione" required>
+      <option value="">Scegli la connessione…</option>
+      {% for customer, conns in groups %}
+      {% if customer %}<optgroup label="{{ customer }}">{% endif %}
+        {% for c in conns %}
+        <option value="{{ c.id }}" {% if c.id == selected_id %}selected{% endif %}>
+          {{ c.name }} · {{ c.environment }}{% if c.is_production %} (PRODUZIONE){% endif %}
+        </option>
+        {% endfor %}
+      {% if customer %}</optgroup>{% endif %}
+      {% endfor %}
+    </select>
+  </section>
+
+  <section class="card stack">
+    <h2 class="step-title"><span class="step">2</span>Pacchetti .app</h2>
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="file-input" accept=".app" multiple class="visually-hidden">
+      <strong>Trascina qui i file .app</strong>
+      <span class="muted">oppure clicca per sceglierli · massimo {{ settings.max_app_size_mb }} MB per file</span>
+    </label>
+    <ul id="file-list" class="files" aria-live="polite"></ul>
+  </section>
+
+  <section class="card stack">
+    <h2 class="step-title"><span class="step">3</span>Opzioni</h2>
+    <fieldset>
+      <legend>Schema sync mode</legend>
+      <div class="radio-row">
+        {% for v, label in syncs.items() %}
+        <label class="check"><input type="radio" name="schema_sync" value="{{ v.value }}" {% if loop.first %}checked{% endif %}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="help">Force Sync applica anche le modifiche di schema distruttive: campi o tabelle rimossi perdono i dati.</p>
+    </fieldset>
+    <label class="field">
+      <span>Schedule</span>
+      <select name="schedule">
+        {% for v, label in schedules.items() %}<option value="{{ v.value }}">{{ label }}</option>{% endfor %}
+      </select>
+      <small class="help">Come «Deploy to» in Extension Management. Con minor/major l'app si installa quando l'environment passa a quella versione: il deploy la segna «programmata» senza attendere l'esito.</small>
+    </label>
+  </section>
+
+  <section class="card stack">
+    <h2 class="step-title"><span class="step">4</span>Quando</h2>
+    <fieldset>
+      <legend class="visually-hidden">Esecuzione</legend>
+      <div class="radio-row">
+        <label class="check"><input type="radio" name="when" value="now" checked><span>Subito</span></label>
+        <label class="check"><input type="radio" name="when" value="once"><span>A data e ora</span></label>
+        <label class="check"><input type="radio" name="when" value="cron"><span>Ricorrente</span></label>
+      </div>
+    </fieldset>
+    <div class="stack" data-when="once" hidden>
+      <label class="field"><span>Data e ora ({{ settings.timezone }})</span><input type="datetime-local" name="run_at" class="input-narrow"></label>
+      <label class="check">
+        <input type="checkbox" name="delete_files_after" value="true" checked>
+        <span>Elimina i pacchetti dopo un'esecuzione riuscita</span>
+      </label>
+    </div>
+    <div class="stack" data-when="cron" hidden>
+      <label class="field">
+        <span>Espressione cron</span>
+        <input name="cron_expr" placeholder="0 2 * * 6" autocomplete="off" spellcheck="false" class="input-narrow"
+               hx-get="/jobs/cron-preview" hx-trigger="input changed delay:400ms" hx-target="#cron-preview">
+        <small class="help">minuto ora giorno mese giorno-della-settimana, fuso {{ settings.timezone }} · es. <code>0 2 * * 6</code> = ogni sabato alle 02:00</small>
+      </label>
+      <div id="cron-preview" aria-live="polite"></div>
+      <p class="help">I pacchetti restano salvati finché il job esiste.</p>
+    </div>
+    <label class="field" data-when="once cron" hidden><span>Nome del job (facoltativo)</span><input name="job_name" maxlength="100"></label>
+  </section>
+
+  <section class="card stack">
+    <h2 class="step-title"><span class="step">5</span>Controllo e avvio</h2>
+    <div id="preview"><p class="muted">Scegli una connessione e carica almeno un pacchetto.</p></div>
+  </section>
+</form>
+{% endif %}
+{% endblock %}

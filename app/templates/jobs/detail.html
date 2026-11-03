@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ job.name }}</h1>
+  {% if job.enabled %}<span class="status status-running">Attivo</span>{% else %}<span class="status status-skipped">{{ "Concluso" if job.kind == "once" else "In pausa" }}</span>{% endif %}
+</div>
+{% if job.last_message %}<div class="alert alert-warn">{{ job.last_message }}</div>{% endif %}
+
+<section class="card">
+  <dl class="kv">
+    <dt>Connessione</dt><dd>{{ job.connection.name }} · {{ job.connection.environment }}{% if job.connection.is_production %} <span class="badge badge-prod">Produzione</span>{% endif %}</dd>
+    <dt>Quando</dt><dd>{% if job.kind == "once" %}una volta, {{ fmt_dt(job.run_at) }}{% else %}cron <code>{{ job.cron_expr }}</code> ({{ job.timezone }}){% endif %}</dd>
+    <dt>Prossima</dt><dd>{{ fmt_dt(next_run) }}</dd>
+    <dt>Opzioni</dt><dd>{{ job.schema_sync }} · {{ job.schedule }}</dd>
+    {% if job.kind == "once" %}<dt>Pacchetti</dt><dd>{{ "eliminati dopo un'esecuzione riuscita" if job.delete_files_after else "conservati per " ~ settings.upload_retention_days ~ " giorni" }}</dd>{% endif %}
+    <dt>Creato</dt><dd>{{ fmt_dt(job.created_at) }} · {{ job.created_by }}</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>App</h2>
+  <ul class="plan">
+    {% for jf in job.files %}
+    <li><span><strong>{{ jf.file.name }}</strong> <span class="mono">{{ jf.file.version }}</span></span>
+        <span class="help">{{ jf.file.publisher }}{% if jf.file.status == "deleted" %} · <span class="error">file eliminato</span>{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Esecuzioni</h2>
+  {% if not runs %}<p class="muted">Ancora nessuna esecuzione.</p>{% endif %}
+  <ul class="plan">
+    {% for r in runs %}
+    <li><a href="/runs/{{ r.id }}">#{{ r.id }} · {{ fmt_dt(r.created_at) }}</a> <span class="status status-{{ r.status }}">{{ RUN_STATUS[r.status] }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+
+<div class="actions">
+  {% if job.enabled %}
+  <button class="btn" hx-post="/jobs/{{ job.id }}/pause">Metti in pausa</button>
+  {% elif job.kind == "cron" %}
+  <button class="btn" hx-post="/jobs/{{ job.id }}/resume">Riprendi</button>
+  {% endif %}
+  <form class="actions" hx-post="/jobs/{{ job.id }}/run-now" hx-confirm="Eseguire il deploy adesso?">
+    {% if job.connection.is_production %}
+    <input name="confirm_env" placeholder="Digita {{ job.connection.environment }} per confermare" aria-label="Conferma environment" autocomplete="off">
+    {% endif %}
+    <button class="btn btn-primary" type="submit">Esegui ora</button>
+  </form>
+  <button class="btn btn-danger" hx-post="/jobs/{{ job.id }}/delete" hx-confirm="Eliminare il job? Lo storico delle esecuzioni resta.">Elimina</button>
+</div>
+{% endblock %}

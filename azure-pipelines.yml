@@ -1,0 +1,44 @@
+# Deploy schedulato di estensioni BC. Metti i .app nella cartella "apps" del repo
+# (oppure scaricali come artefatto da un'altra pipeline).
+# Variabili da definire (come secret) in Pipelines > Library o nella pipeline:
+#   BC_TENANT_ID, BC_CLIENT_ID, BC_CLIENT_SECRET
+
+schedules:
+  - cron: "0 2 * * 6"        # sabato alle 02:00 UTC
+    displayName: Deploy settimanale
+    branches:
+      include: [main]
+    always: true             # esegue anche se il repo non è cambiato
+
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: environment
+    default: Sandbox
+  - name: schemaSync
+    default: Add
+    values: [Add, Force Sync]
+  - name: schedule
+    default: Current version
+    values: [Current version, Next minor version, Next major version]
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+  - script: pip install -r requirements.txt
+    displayName: Installa dipendenze
+  - script: >
+      python bc_deploy.py
+      --environment "${{ parameters.environment }}"
+      --apps ./apps
+      --schema-sync "${{ parameters.schemaSync }}"
+      --schedule "${{ parameters.schedule }}"
+    displayName: Deploy estensioni su Business Central
+    env:
+      BC_TENANT_ID: $(BC_TENANT_ID)
+      BC_CLIENT_ID: $(BC_CLIENT_ID)
+      BC_CLIENT_SECRET: $(BC_CLIENT_SECRET)

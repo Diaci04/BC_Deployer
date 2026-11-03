@@ -1,0 +1,25 @@
+{% if not runs %}
+<div class="empty"><strong>Nessuna esecuzione trovata</strong>Prova a cambiare i filtri.</div>
+{% endif %}
+<div class="list">
+  {% for r in runs %}
+  <a class="card row-link" href="/runs/{{ r.id }}">
+    <div class="item-head">
+      <span><strong>#{{ r.id }}</strong> · {{ fmt_dt(r.created_at) }}</span>
+      <span class="status status-{{ r.status }}">{{ RUN_STATUS[r.status] }}</span>
+    </div>
+    <div>{{ r.connection_name }} · {{ r.environment }}</div>
+    <small class="help">
+      {{ r.items|map(attribute="name")|join(", ") or "nessuna app" }}
+      · {{ TRIGGERS.get(r.trigger, r.trigger) }} · {{ r.triggered_by }}
+    </small>
+  </a>
+  {% endfor %}
+</div>
+{% if page > 1 or has_next %}
+{% set qs = filters|dictsort|selectattr(1)|list|urlencode %}
+<nav class="actions pager">
+  {% if page > 1 %}<a class="btn" href="/runs?{{ qs }}&page={{ page - 1 }}">← Più recenti</a>{% endif %}
+  {% if has_next %}<a class="btn" href="/runs?{{ qs }}&page={{ page + 1 }}">Meno recenti →</a>{% endif %}
+</nav>
+{% endif %}

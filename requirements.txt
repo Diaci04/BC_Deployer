@@ -1,0 +1,14 @@
+fastapi>=0.115,<1
+uvicorn>=0.32,<1
+jinja2>=3.1,<4
+python-multipart>=0.0.18
+sqlalchemy>=2.0.36,<3
+alembic>=1.14,<2
+pydantic-settings>=2.6,<3
+argon2-cffi>=23.1
+cryptography>=43
+httpx>=0.28,<1
+apscheduler>=3.10,<4
+tzdata>=2024.2
+defusedxml>=0.7
+psycopg[binary]>=3.2  # solo se DATABASE_URL punta a Postgres

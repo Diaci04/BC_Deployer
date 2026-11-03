@@ -1,0 +1,35 @@
+{% if error %}<div class="alert alert-err" role="alert">{{ error }}</div>{% endif %}
+{% if not files %}
+<p class="muted">Carica almeno un pacchetto.</p>
+{% elif ordered %}
+<p class="help">Ordine di installazione, calcolato dalle dipendenze:</p>
+<ol class="order">
+  {% for m, f in ordered %}
+  <li>
+    <div><strong>{{ m.name }}</strong> <span class="mono">{{ m.version }}</span></div>
+    <small class="help">{{ m.publisher }} · {{ f.original_name }}{% if m.application %} · richiede Base App ≥ {{ m.application }}{% endif %}</small>
+    {% if m.dependencies %}
+    <small class="help">Dipende da: {% for d in m.dependencies %}{{ d.name or d.id }} ≥ {{ d.min_version }}{% if not loop.last %}, {% endif %}{% endfor %}</small>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% if not conn %}
+<p class="muted">Scegli una connessione per verificare l'environment e avviare.</p>
+{% else %}
+  {% if busy %}<div class="alert alert-warn">C'è già un deploy in corso su questo environment: il nuovo partirà al termine.</div>{% endif %}
+  <div id="precheck" hx-post="/deploy/precheck" hx-trigger="load" hx-target="this" aria-live="polite">
+    <p class="muted"><span class="spinner"></span> Verifica delle app presenti in {{ conn.environment }}…</p>
+  </div>
+  {% if conn.is_production %}
+  <label class="field prod-confirm">
+    <span>Environment di PRODUZIONE: digita <code>{{ conn.environment }}</code> per confermare</span>
+    <input name="confirm_env" autocomplete="off" spellcheck="false">
+  </label>
+  {% endif %}
+  <div id="start-error" aria-live="assertive"></div>
+  <div class="actions">
+    <button type="button" class="btn btn-primary btn-lg" hx-post="/deploy" hx-target="#start-error" hx-disabled-elt="this">{{ "Programma deploy" if scheduled else "Avvia deploy" }}</button>
+  </div>
+{% endif %}
+{% endif %}

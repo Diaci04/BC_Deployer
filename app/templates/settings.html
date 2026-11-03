@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Impostazioni{% endblock %}
+{% macro field(name, label, required=true, help=None, type="text", attrs="") %}
+<label class="field {{ 'has-error' if errors.get(name) }}">
+  <span>{{ label }}{% if required %} <span class="req">*</span>{% endif %}</span>
+  <input name="{{ name }}" type="{{ type }}" value="{{ data[name] }}" autocomplete="off" spellcheck="false" {% if required %}required{% endif %} {{ attrs }}>
+  {% if errors.get(name) %}<small class="error">{{ errors[name] }}</small>{% elif help %}<small class="help">{{ help }}</small>{% endif %}
+</label>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Impostazioni</h1>
+    <p class="sub">Server email usato per le notifiche a fine deploy</p>
+  </div>
+</div>
+
+<form method="post" action="/settings/smtp" class="card form-section">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h2>Server email (SMTP)
+    {% if smtp %}<span class="status status-succeeded">Configurato</span>{% else %}<span class="status">Non configurato</span>{% endif %}
+  </h2>
+  <div class="form-grid">
+    {{ field("host", "Server", help="Office 365: smtp.office365.com · Gmail: smtp.gmail.com") }}
+    <div class="form-grid">
+      {{ field("port", "Porta", attrs='inputmode="numeric"') }}
+      <label class="field {{ 'has-error' if errors.get('security') }}">
+        <span>Sicurezza</span>
+        <select name="security">
+          {% for k, label in security.items() %}<option value="{{ k }}" {% if data.security == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    {{ field("username", "Utente", required=false, help="Di solito l'indirizzo email dell'account") }}
+    <label class="field {{ 'has-error' if errors.get('password') }}">
+      <span>Password</span>
+      <input name="password" type="password" autocomplete="new-password"
+             placeholder="{{ 'salvata: lascia vuoto per non cambiarla' if smtp and smtp.password_enc else '' }}">
+      {% if errors.get('password') %}<small class="error">{{ errors.password }}</small>
+      {% else %}<small class="help">Viene cifrata e non sarà più visibile. Con la verifica in due passaggi serve una password per le app.</small>{% endif %}
+    </label>
+    {{ field("from_addr", "Mittente", help="Indirizzo da cui partono le email", type="email") }}
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Salva</button>
+    {% if smtp %}
+    <span class="spacer"></span>
+    <button type="submit" class="btn btn-danger" formaction="/settings/smtp/delete" formnovalidate>Rimuovi</button>
+    {% endif %}
+  </div>
+</form>
+
+{% if smtp %}
+<form class="card form-section" hx-post="/settings/smtp/test" hx-target="#smtp-test" hx-indicator="#smtp-spin">
+  <h2>Prova</h2>
+  <div class="actions">
+    <input name="to" type="email" placeholder="tuo.indirizzo@azienda.it" aria-label="Destinatario della prova"
+           value="{{ smtp.username if smtp.username and '@' in smtp.username else '' }}" class="input-narrow" required>
+    <button class="btn" type="submit">Invia email di prova</button>
+    <span id="smtp-spin" class="spinner htmx-indicator" role="status" aria-label="Invio in corso"></span>
+  </div>
+  <div id="smtp-test" aria-live="polite"></div>
+</form>
+{% endif %}
+
+<div class="alert alert-info section-gap">
+  <strong>Office 365 aziendale:</strong> l'invio SMTP con utente e password funziona solo se l'amministratore
+  ha abilitato <em>SMTP AUTH</em> per l'account. Se la prova restituisce un errore di autenticazione
+  (es. <code>535 5.7.139</code>), chiedi all'IT di abilitarlo o di darti un server SMTP interno.
+</div>
+{% endblock %}

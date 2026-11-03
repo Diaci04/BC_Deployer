@@ -1,0 +1,5 @@
+<ul class="checks">
+  {% for ok, text in result.steps %}
+  <li class="{{ 'ok' if ok else 'err' }}">{{ text }}</li>
+  {% endfor %}
+</ul>

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Storico{% endblock %}
+{% block content %}
+<h1>Storico esecuzioni</h1>
+<form class="card filters" hx-get="/runs" hx-target="#runs" hx-push-url="true"
+      hx-trigger="change, input changed delay:400ms from:input[name=app]">
+  <label class="field"><span>Connessione</span>
+    <select name="connection_id">
+      <option value="">Tutte</option>
+      {% for c in connections %}<option value="{{ c.id }}" {% if filters.connection_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field"><span>Esito</span>
+    <select name="status">
+      <option value="">Tutti</option>
+      {% for k, v in RUN_STATUS.items() %}<option value="{{ k }}" {% if filters.status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field"><span>Avvio</span>
+    <select name="trigger">
+      <option value="">Tutti</option>
+      {% for k, v in TRIGGERS.items() %}<option value="{{ k }}" {% if filters.trigger == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field"><span>App</span><input name="app" value="{{ filters.app }}" placeholder="nome app" autocomplete="off"></label>
+  <label class="field"><span>Dal</span><input type="date" name="date_from" value="{{ filters.date_from }}"></label>
+  <label class="field"><span>Al</span><input type="date" name="date_to" value="{{ filters.date_to }}"></label>
+</form>
+<div id="runs">{% include "runs/_rows.html" %}</div>
+{% endblock %}

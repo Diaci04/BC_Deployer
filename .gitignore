@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Segreti e dati locali: non vanno mai pubblicati
+.env
+data/
+*.db
+# Appunti e pacchetti locali
+pc aziendale.txt
+bc-deployer.zip

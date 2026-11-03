@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Deploy programmati{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Deploy programmati</h1>
+  <a class="btn btn-primary" href="/deploy">+ Nuovo deploy</a>
+</div>
+{% if not jobs %}
+<div class="empty">
+  <strong>Nessun deploy programmato</strong>
+  Dalla pagina Deploy, al passo «Quando», scegli «A data e ora» o «Ricorrente».
+  <div><a class="btn btn-primary" href="/deploy">Programma un deploy</a></div>
+</div>
+{% endif %}
+<div class="list">
+  {% for j in jobs %}
+  <a class="card row-link" href="/jobs/{{ j.id }}">
+    <div class="item-head">
+      <strong>{{ j.name }}</strong>
+      {% if j.enabled %}<span class="status status-running">Attivo</span>{% else %}<span class="status status-skipped">{{ "Concluso" if j.kind == "once" else "In pausa" }}</span>{% endif %}
+    </div>
+    <small class="help">
+      {{ j.connection.name }} · {{ j.connection.environment }} ·
+      {% if j.kind == "once" %}una volta{% else %}cron <code>{{ j.cron_expr }}</code>{% endif %} ·
+      prossima: {{ fmt_dt(next_run[j.id]) }} · {{ j.files|length }} app
+    </small>
+    {% if j.last_message %}<small class="error">{{ j.last_message }}</small>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

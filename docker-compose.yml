@@ -1,0 +1,18 @@
+# Sviluppo locale: http://localhost:8000
+#   cp .env.example .env   (e compila ADMIN_PASSWORD_HASH e FERNET_KEYS)
+#   docker compose up --build
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      APP_ENV: development   # niente redirect HTTPS in locale
+      COOKIE_SECURE: "false" # i cookie Secure non viaggiano su http://
+    volumes:
+      - bcd-data:/data
+    restart: unless-stopped
+
+volumes:
+  bcd-data:

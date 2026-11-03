@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Esecuzione #{{ run.id }}{% endblock %}
+{% block scripts %}<script src="/static/run.js" defer></script>{% endblock %}
+{% block content %}
+<div id="run" data-run-id="{{ run.id }}" data-final="{{ 'true' if final else 'false' }}"
+     data-last-log="{{ logs[-1].id if logs else 0 }}" data-tz="{{ settings.timezone }}"
+     data-item-labels='{{ ITEM_STATUS|tojson }}' data-run-labels='{{ RUN_STATUS|tojson }}'>
+  <div class="page-head">
+    <div>
+      <h1>Esecuzione #{{ run.id }}</h1>
+      <p class="sub">{{ run.connection_name }} · {{ run.environment }}</p>
+    </div>
+    <span id="run-status" class="status status-{{ run.status }}">{{ RUN_STATUS[run.status] }}</span>
+  </div>
+
+  <div id="run-error" class="alert alert-err" role="alert" {% if not run.error %}hidden{% endif %}>{{ run.error or "" }}</div>
+
+  <section class="card">
+    <dl class="kv">
+      <dt>Connessione</dt><dd>{% if conn %}<a href="/connections/{{ conn.id }}/edit">{{ run.connection_name }}</a>{% else %}{{ run.connection_name }}{% endif %}</dd>
+      <dt>Environment</dt><dd>{{ run.environment }}</dd>
+      <dt>Avvio</dt><dd>{{ TRIGGERS.get(run.trigger, run.trigger) }} · {{ run.triggered_by }}{% if run.client_ip %} ({{ run.client_ip }}){% endif %}</dd>
+      {% if run.parent_run_id %}<dt>Rilancio di</dt><dd><a href="/runs/{{ run.parent_run_id }}">#{{ run.parent_run_id }}</a></dd>{% endif %}
+      <dt>Opzioni</dt><dd>{{ run.schema_sync }} · {{ run.schedule }}</dd>
+      <dt>Creata</dt><dd>{{ fmt_dt(run.created_at, True) }}</dd>
+      <dt>Terminata</dt><dd>{{ fmt_dt(run.finished_at, True) }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>App</h2>
+    <ol class="items">
+      {% for it in run.items %}
+      <li id="item-{{ it.id }}" class="item">
+        <div class="item-head">
+          <span><strong>{{ it.name }}</strong> <span class="mono">{{ it.version }}</span></span>
+          <span class="status status-{{ it.status }}" data-status>{{ ITEM_STATUS[it.status] }}</span>
+        </div>
+        <small class="help">{{ it.publisher }}<span data-installed>{% if it.installed_version %} · installata prima: {{ it.installed_version }}{% endif %}</span></small>
+        <div class="item-error" data-error {% if not it.error_message %}hidden{% endif %}>{{ it.error_message or "" }}</div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><h2>Log</h2><span id="live" class="live" {% if final %}hidden{% endif %}>● in diretta</span></div>
+    <div id="log" class="log" role="log">
+      {% for l in logs %}<div class="log-line log-{{ l.level }}"><time>{{ fmt_dt(l.ts, True)[-8:] }}</time> {{ l.message }}</div>{% endfor %}
+    </div>
+  </section>
+
+  <div class="actions">
+    <button id="cancel-btn" class="btn btn-danger" hx-post="/runs/{{ run.id }}/cancel" {% if final %}hidden{% endif %}
+            hx-confirm="Annullare? L'app in corso termina comunque, le successive vengono saltate.">Annulla</button>
+    {% if final and not rerun_block %}
+    <form class="actions" hx-post="/runs/{{ run.id }}/rerun">
+      {% if conn and conn.is_production %}
+      <input name="confirm_env" placeholder="Digita {{ conn.environment }} per confermare" aria-label="Conferma environment" autocomplete="off">
+      {% endif %}
+      <button class="btn btn-primary" type="submit">Rilancia</button>
+    </form>
+    {% elif final and run.status != "succeeded" %}
+    <span class="help">{{ rerun_block }}</span>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

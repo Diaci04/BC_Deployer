@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ "Modifica" if conn else "Nuova" }} connessione{% endblock %}
+{% macro field(name, label, required=true, help=None, cls="", attrs="") %}
+<label class="field {{ cls }} {{ 'has-error' if errors.get(name) }}">
+  <span>{{ label }}{% if required %} <span class="req">*</span>{% endif %}</span>
+  <input name="{{ name }}" value="{{ data[name] }}" autocomplete="off" spellcheck="false" {% if required %}required{% endif %} {{ attrs }}>
+  {% if errors.get(name) %}<small class="error">{{ errors[name] }}</small>{% elif help %}<small class="help">{{ help }}</small>{% endif %}
+</label>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ "Modifica connessione" if conn else ("Copia connessione" if source else "Nuova connessione") }}</h1>
+    {% if source %}<p class="sub">Partendo da <strong>{{ source.name }}</strong></p>{% endif %}
+  </div>
+</div>
+
+{% if source %}
+<div class="alert alert-info">
+  Indica il nuovo <strong>environment</strong>. Client secret e webhook restano quelli di «{{ source.name }}»
+  se lasci vuoti i campi: non serve reinserirli.
+</div>
+{% endif %}
+
+<form method="post" action="{{ '/connections/%d' % conn.id if conn else '/connections' }}" class="stack"
+      {% if not conn %}data-autoname{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% if source %}<input type="hidden" name="copy_from" value="{{ source.id }}">{% endif %}
+
+  <section class="card form-section">
+    <h2>Environment</h2>
+    <div class="form-grid">
+      <label class="field {{ 'has-error' if errors.get('customer') }}">
+        <span>Cliente</span>
+        <input name="customer" value="{{ data.customer }}" list="customers" autocomplete="off" maxlength="100">
+        <datalist id="customers">{% for c in customers %}<option value="{{ c }}">{% endfor %}</datalist>
+        {% if errors.get('customer') %}<small class="error">{{ errors.customer }}</small>
+        {% else %}<small class="help">Facoltativo: raggruppa gli environment dello stesso cliente</small>{% endif %}
+      </label>
+      {{ field("environment", "Environment BC", help="Nome come in Admin Center, es. Production o Sandbox",
+               attrs="autofocus" if source else "") }}
+      {{ field("name", "Nome della connessione", help="Come appare nell'app") }}
+      {{ field("company", "Company", required=false, help="Se vuoto si usa la prima company") }}
+      <label class="check full">
+        <input type="checkbox" name="is_production" value="true" {% if data.is_production %}checked{% endif %}>
+        <span><strong>Environment di produzione</strong><br><small class="help">Prima di ogni deploy chiede di digitare il nome dell'environment</small></span>
+      </label>
+    </div>
+  </section>
+
+  <section class="card form-section">
+    <h2>Accesso <small>app registration in Entra ID</small></h2>
+    <div class="form-grid">
+      {{ field("tenant_id", "Tenant ID", help="GUID o dominio, es. contoso.onmicrosoft.com") }}
+      {{ field("client_id", "Client ID", help="Application (client) ID") }}
+      <label class="field full {{ 'has-error' if errors.get('client_secret') }}">
+        <span>Client secret{% if not conn and not source %} <span class="req">*</span>{% endif %}</span>
+        <input name="client_secret" type="password" autocomplete="new-password" {% if not conn and not source %}required{% endif %}
+               placeholder="{{ 'salvato: lascia vuoto per non cambiarlo' if conn else ('uguale a «' ~ source.name ~ '»: lascia vuoto per usarlo' if source else '') }}">
+        {% if errors.get('client_secret') %}<small class="error">{{ errors.client_secret }}</small>
+        {% else %}<small class="help">Viene cifrato e non sarà più visibile dopo il salvataggio.</small>{% endif %}
+      </label>
+    </div>
+  </section>
+
+  <section class="card form-section">
+    <h2>Notifiche a fine deploy <small>facoltative</small></h2>
+    <div class="form-grid">
+      <label class="field full {{ 'has-error' if errors.get('notify_emails') }}">
+        <span>Email</span>
+        <input name="notify_emails" value="{{ data.notify_emails }}" autocomplete="off" spellcheck="false"
+               placeholder="mario.rossi@azienda.it, team@azienda.it">
+        {% if errors.get('notify_emails') %}<small class="error">{{ errors.notify_emails }}</small>
+        {% elif not smtp_ready %}<small class="help">Per inviarle configura prima il server email in <a href="/settings">Impostazioni</a>.</small>
+        {% else %}<small class="help">Uno o più indirizzi separati da virgola.</small>{% endif %}
+      </label>
+      <label class="field {{ 'has-error' if errors.get('webhook_kind') }}">
+        <span>Teams / Slack</span>
+        <select name="webhook_kind">
+          <option value="">Nessuno</option>
+          {% for k, label in kinds.items() %}<option value="{{ k }}" {% if data.webhook_kind == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span>Quando notificare</span>
+        <select name="notify_on">
+          {% for k, label in notify_on.items() %}<option value="{{ k }}" {% if data.notify_on == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field full {{ 'has-error' if errors.get('webhook_url') }}">
+        <span>URL del webhook</span>
+        <input name="webhook_url" type="password" autocomplete="off" spellcheck="false"
+               placeholder="{{ 'configurato: lascia vuoto per non cambiarlo' if conn and conn.webhook_url_enc else ('uguale a «' ~ source.name ~ '»: lascia vuoto per usarlo' if source and source.webhook_url_enc else 'https://…') }}">
+        {% if errors.get('webhook_url') %}<small class="error">{{ errors.webhook_url }}</small>
+        {% else %}<small class="help">Teams: URL del flusso Workflows "Invia al canale alla ricezione di una richiesta webhook". Slack: Incoming Webhook. Viene cifrato come il secret.</small>{% endif %}
+      </label>
+      {% if conn and conn.webhook_url_enc %}
+      <label class="check full"><input type="checkbox" name="remove_webhook" value="true"><span>Rimuovi il webhook salvato</span></label>
+      {% endif %}
+    </div>
+    {% if conn and conn.has_notifications %}
+    <div class="actions">
+      {% if conn.email_list %}
+      <button type="button" class="btn btn-sm" hx-post="/connections/{{ conn.id }}/test-email" hx-target="#notify-test"
+              hx-indicator="#notify-spin" hx-disabled-elt="this">Invia email di prova</button>
+      {% endif %}
+      {% if conn.webhook_url_enc %}
+      <button type="button" class="btn btn-sm" hx-post="/connections/{{ conn.id }}/test-webhook" hx-target="#notify-test"
+              hx-indicator="#notify-spin" hx-disabled-elt="this">Prova webhook</button>
+      {% endif %}
+      <span id="notify-spin" class="spinner htmx-indicator" role="status" aria-label="Invio in corso"></span>
+      <small class="help">Usano le impostazioni salvate.</small>
+    </div>
+    <div id="notify-test" aria-live="polite"></div>
+    {% endif %}
+  </section>
+
+  <div class="actions">
+    <button class="btn btn-primary btn-lg" type="submit">Salva</button>
+    <a class="btn btn-ghost" href="/connections">Annulla</a>
+    {% if conn %}
+    <span class="spacer"></span>
+    <a class="btn" href="/connections/{{ conn.id }}/copy">Copia</a>
+    <button type="button" class="btn btn-danger" hx-post="/connections/{{ conn.id }}/delete"
+            hx-confirm="Eliminare la connessione '{{ conn.name }}'? Lo storico dei deploy resta.">Elimina</button>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

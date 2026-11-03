@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/
+tests/
+.git/
+*.md
+azure-pipelines.yml
+requirements-dev.txt

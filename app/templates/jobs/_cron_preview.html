@@ -1,0 +1,5 @@
+{% if error %}
+<small class="error">{{ error }}</small>
+{% else %}
+<small class="help">Prossime esecuzioni: {% for t in times %}{{ fmt_dt(t) }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
+{% endif %}

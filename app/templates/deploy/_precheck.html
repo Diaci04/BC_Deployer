@@ -1,0 +1,20 @@
+{% if error %}
+<div class="alert alert-warn">Verifica sull'environment non riuscita: {{ error }}</div>
+{% else %}
+<ul class="plan">
+  {% for p in result.plans %}
+  <li class="plan-{{ p.action.value }}">
+    <span><strong>{{ p.manifest.name }}</strong> <span class="mono">{{ p.manifest.version }}</span></span>
+    <span class="help">{% if p.installed_version %}installata {{ p.installed_version }} · {% endif %}{{ p.action_label }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% if result.problems %}
+<div class="alert alert-err" role="alert">
+  <strong>Il deploy si fermerebbe prima di iniziare:</strong>
+  <ul>{% for p in result.problems %}<li>{{ p }}</li>{% endfor %}</ul>
+</div>
+{% else %}
+<div class="alert alert-ok">Verifiche superate su {{ conn.environment }}.</div>
+{% endif %}
+{% endif %}
